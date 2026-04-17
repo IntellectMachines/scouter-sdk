@@ -32,7 +32,7 @@ from openai import OpenAI
 
 # 1. Init Scouter
 scouter = ScouterClient(
-    backend_url="https://your-scouter-backend.example.com",
+    # backend_url defaults to the Scouter cloud endpoint
     api_key="your-api-key",
     mode="enforce",   # audit | enforce
 )
@@ -69,7 +69,7 @@ import { wrapOpenAI } from "@scouter-ai/node/integrations/openai";
 import OpenAI from "openai";
 
 const scouter = new ScouterClient({
-  backendUrl: "https://your-scouter-backend.example.com",
+  // backendUrl defaults to the Scouter cloud endpoint
   apiKey: "your-api-key",
   mode: "enforce",
 });
