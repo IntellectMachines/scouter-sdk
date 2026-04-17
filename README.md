@@ -177,4 +177,4 @@ npm test
 
 Apache 2.0 — see [LICENSE](LICENSE).
 
-Built by [LazzyHQ](https://github.com/LazzyHQ).
+Built by [IntellectMachines](https://github.com/IntellectMachines).
