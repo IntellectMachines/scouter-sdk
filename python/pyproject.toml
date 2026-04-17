@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scouter-ai"
+version = "0.1.0"
+description = "Scouter — The AI Permission Layer. Runtime Semantic Authorization SDK."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.25.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio",
+]
+langchain = ["langchain>=0.1.0", "langchain-core>=0.1.0"]
+crewai = ["crewai>=0.28.0"]
+autogen = ["pyautogen>=0.2.0"]
+phidata = ["phidata>=2.0.0"]
+all = [
+    "langchain>=0.1.0",
+    "langchain-core>=0.1.0",
+    "crewai>=0.28.0",
+    "pyautogen>=0.2.0",
+    "phidata>=2.0.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["scouter*"]
