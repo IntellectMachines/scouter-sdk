@@ -32,8 +32,6 @@ jobs:
   publish-npm:
     name: Build & Publish to npm
     runs-on: ubuntu-latest
-    # Skip cleanly if the node package was ever moved/removed.
-    if: hashFiles('node/package.json') != ''
     # Required for `npm publish --provenance` to mint a Sigstore attestation
     # via GitHub's OIDC provider. `contents: read` is the minimum needed by
     # actions/checkout once we narrow permissions away from the default.
