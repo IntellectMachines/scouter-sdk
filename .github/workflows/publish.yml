@@ -102,11 +102,16 @@ jobs:
           python -m pip install -e ".[dev]" || python -m pip install -e .
 
       # ----- Tests (only if any test files exist) ---------------------------
+      # NOTE: tests/test_backend_integration.py and tests/test_e2e.py import
+      # `from app.main import app`, which lives in the separate backend
+      # service repo (not in scouter-sdk). They are excluded here so CI runs
+      # only the SDK's unit tests. Run them locally alongside the backend.
       - name: Run pytest
-        # `find` returns success even if nothing matches; we explicitly count.
         run: |
           if [ -d tests ] && [ "$(find tests -name 'test_*.py' -o -name '*_test.py' | wc -l)" -gt 0 ]; then
-            pytest -q
+            pytest -q \
+              --ignore=tests/test_backend_integration.py \
+              --ignore=tests/test_e2e.py
           else
             echo "No Python tests found - skipping."
           fi
