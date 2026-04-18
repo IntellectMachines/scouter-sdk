@@ -32,3 +32,4 @@ Thumbs.db
 # Test artifacts
 agent_workspace/
 *.db
+node/package-lock.json
