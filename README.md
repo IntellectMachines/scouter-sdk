@@ -135,7 +135,7 @@ User Prompt
 Copy `.env.example` to `.env` and fill in your values:
 
 ```env
-SCOUTER_BACKEND_URL=https://your-scouter-backend.example.com
+SCOUTER_BACKEND_URL=[https://your-scouter-backend.example.com](https://scouter.intellectmachines.com)
 SCOUTER_API_KEY=your-api-key-here
 ```
 
