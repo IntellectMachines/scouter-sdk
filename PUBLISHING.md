@@ -5,7 +5,7 @@ This repo ships **two** packages from one monorepo:
 | Ecosystem | Source dir | Package name      | Manifest                |
 | --------- | ---------- | ----------------- | ----------------------- |
 | PyPI      | `python/`  | `scouter-ai`      | `python/pyproject.toml` |
-| npm       | `node/`    | `@scouter/core`   | `node/package.json`     |
+| npm       | `node/`    | `@scouter-ai/core` | `node/package.json`     |
 
 Releases are automated by **`.github/workflows/publish.yml`** — creating a
 GitHub Release publishes both packages in parallel.

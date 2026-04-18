@@ -1,7 +1,7 @@
 # .github/workflows/publish.yml
 #
 # CI/CD pipeline for the scouter-sdk Node package only.
-#   - Node package lives in ./node (package.json -> "@scouter/core" on npm)
+#   - Node package lives in ./node (package.json -> "@scouter-ai/core" on npm)
 #
 # PyPI publishing is intentionally NOT in this workflow.
 # `scouter-ai 0.1.0` is already on PyPI; future Python releases will be cut
@@ -12,8 +12,8 @@
 #   * GitHub Release created -> tests + build + publish to npm
 #
 # Required repository secret (Settings > Secrets and variables > Actions):
-#   * NPM_TOKEN -> npm automation token with publish rights to the @scouter scope
-#                  (the @scouter org must exist on npmjs.com first)
+#   * NPM_TOKEN -> npm automation token with publish rights to the @scouter-ai scope
+#                  (the @scouter-ai org must exist on npmjs.com first)
 
 name: Publish scouter-sdk (npm)
 
@@ -109,6 +109,6 @@ jobs:
             exit 1
           fi
           # `--access public` is required for the first publish of a scoped package
-          # (e.g. @scouter/core). Subsequent publishes accept it as a no-op.
+          # (e.g. @scouter-ai/core). Subsequent publishes accept it as a no-op.
           # `--provenance` mints a Sigstore attestation; needs id-token: write above.
           npm publish --access public --provenance

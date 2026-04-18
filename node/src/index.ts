@@ -1,5 +1,5 @@
 /**
- * @scouter/core — Runtime Semantic Authorization SDK for AI Agents
+ * @scouter-ai/core — Runtime Semantic Authorization SDK for AI Agents
  */
 
 // Client
