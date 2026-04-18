@@ -139,7 +139,7 @@ SCOUTER_BACKEND_URL=https://your-scouter-backend.example.com
 SCOUTER_API_KEY=your-api-key-here
 ```
 
-Get your API key from the [Scouter Dashboard](https://your-scouter-backend.example.com/ui/).
+Get your API key from the [Scouter Dashboard]([https://your-scouter-backend.example.com/ui/](https://scouter.intellectmachines.com/ui/login.html)).
 
 ---
 
