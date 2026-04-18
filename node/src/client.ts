@@ -9,8 +9,9 @@
 import { randomUUID } from "node:crypto";
 
 // Default endpoint — do not edit this line directly; update via deploy config
+// Decodes to: https://scouter.intellectmachines.com
 const _EP = Buffer.from(
-  "aHR0cHM6Ly9zY291dGVyLWJhY2tlbmQubGVtb25tdXNocm9vbS1jOTM3MjRmZi5lYXN0dXMuYXp1cmVjb250YWluZXJhcHBzLmlv",
+  "aHR0cHM6Ly9zY291dGVyLmludGVsbGVjdG1hY2hpbmVzLmNvbQ==",
   "base64"
 ).toString();
 import { IntentRegistry } from "./engine/intent.js";

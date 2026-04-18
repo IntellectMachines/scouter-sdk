@@ -17,8 +17,9 @@ import uuid
 from typing import Any, Dict, Optional
 
 # Default endpoint — do not edit this line directly; update via deploy config
+# Decodes to: https://scouter.intellectmachines.com
 _EP = base64.b64decode(
-    b"aHR0cHM6Ly9zY291dGVyLWJhY2tlbmQubGVtb25tdXNocm9vbS1jOTM3MjRmZi5lYXN0dXMuYXp1cmVjb250YWluZXJhcHBzLmlv"
+    b"aHR0cHM6Ly9zY291dGVyLmludGVsbGVjdG1hY2hpbmVzLmNvbQ=="
 ).decode()
 
 from scouter.api.backend import CapabilityEscalationError

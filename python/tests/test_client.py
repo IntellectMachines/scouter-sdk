@@ -32,7 +32,10 @@ class TestScouterClient:
         client = ScouterClient(verbose=False)
         assert client.mode == "audit"
         assert client.trace_id.startswith("trace-")
-        assert client.backend is None
+        # Default backend is the production endpoint
+        # (https://scouter.intellectmachines.com); a BackendClient is created
+        # whenever the health check succeeds. Just verify the URL was set.
+        assert client.backend_url.startswith("https://scouter.intellectmachines.com")
 
     def test_initializes_with_backend_url(self):
         # Backend is unreachable, so it should fall back to local

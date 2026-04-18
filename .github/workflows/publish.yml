@@ -1,0 +1,228 @@
+# .github/workflows/publish.yml
+#
+# CI/CD pipeline for the scouter-sdk monorepo.
+#   - Python package lives in   ./python   (pyproject.toml -> "scouter-ai" on PyPI)
+#   - Node    package lives in   ./node     (package.json   -> "@scouter/core" on npm)
+#
+# Triggers:
+#   * push to master         -> runs tests only (publish steps are gated on `release`)
+#   * GitHub Release created -> runs tests AND publishes both packages in parallel
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   * PYPI_API_TOKEN  -> PyPI API token (scope: project "scouter-ai") prefixed with "pypi-"
+#   * NPM_TOKEN       -> npm automation token with publish rights to the @scouter scope
+
+name: Publish scouter-sdk
+
+on:
+  push:
+    branches: [master]
+  release:
+    types: [created]
+
+# Avoid concurrent publishes for the same ref.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Detect which sub-packages exist so we can gracefully skip missing ones.
+  # --------------------------------------------------------------------------
+  detect:
+    name: Detect packages
+    runs-on: ubuntu-latest
+    outputs:
+      has_python: ${{ steps.check.outputs.has_python }}
+      has_node:   ${{ steps.check.outputs.has_node }}
+      version:    ${{ steps.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: check
+        name: Check for package manifests
+        run: |
+          # PyPI job is skipped unless pyproject.toml OR setup.py is present.
+          if [ -f python/pyproject.toml ] || [ -f python/setup.py ]; then
+            echo "has_python=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_python=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No python/pyproject.toml or python/setup.py found - PyPI job will be skipped."
+          fi
+
+          # npm job is skipped unless package.json is present.
+          if [ -f node/package.json ]; then
+            echo "has_node=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_node=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No node/package.json found - npm job will be skipped."
+          fi
+
+      - id: version
+        name: Resolve version from release tag
+        # On a release event, GITHUB_REF_NAME is the tag (e.g. "v1.2.3").
+        # We strip a leading "v" so it can be fed straight into PEP 440 / semver.
+        # On non-release events the value is empty and version-bump steps are no-ops.
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            RAW="${GITHUB_REF_NAME}"
+            CLEAN="${RAW#v}"
+            echo "value=${CLEAN}" >> "$GITHUB_OUTPUT"
+            echo "Release version detected: ${CLEAN}"
+          else
+            echo "value=" >> "$GITHUB_OUTPUT"
+          fi
+
+  # --------------------------------------------------------------------------
+  # PyPI: build + (optionally) publish the Python package in ./python
+  # --------------------------------------------------------------------------
+  publish-pypi:
+    name: Build & Publish to PyPI
+    needs: detect
+    if: needs.detect.outputs.has_python == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+          # Install the package + dev extras so tests can import dependencies.
+          # `[dev]` is defined in python/pyproject.toml.
+          python -m pip install -e ".[dev]" || python -m pip install -e .
+
+      # ----- Tests (only if any test files exist) ---------------------------
+      # NOTE: tests/test_backend_integration.py and tests/test_e2e.py import
+      # `from app.main import app`, which lives in the separate backend
+      # service repo (not in scouter-sdk). They are excluded here so CI runs
+      # only the SDK's unit tests. Run them locally alongside the backend.
+      - name: Run pytest
+        run: |
+          if [ -d tests ] && [ "$(find tests -name 'test_*.py' -o -name '*_test.py' | wc -l)" -gt 0 ]; then
+            pytest -q \
+              --ignore=tests/test_backend_integration.py \
+              --ignore=tests/test_e2e.py
+          else
+            echo "No Python tests found - skipping."
+          fi
+
+      # ----- Bump version from release tag ----------------------------------
+      - name: Bump version in pyproject.toml
+        if: github.event_name == 'release' && needs.detect.outputs.version != ''
+        env:
+          NEW_VERSION: ${{ needs.detect.outputs.version }}
+        run: |
+          # In-place rewrite of the `version = "..."` line under [project].
+          # Using python keeps this portable and avoids brittle sed escaping.
+          python - <<'PY'
+          import os, re, pathlib
+          p = pathlib.Path("pyproject.toml")
+          new = os.environ["NEW_VERSION"]
+          text = p.read_text()
+          text = re.sub(r'^version\s*=\s*".*"', f'version = "{new}"', text, count=1, flags=re.M)
+          p.write_text(text)
+          print(f"pyproject.toml version bumped to {new}")
+          PY
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      - name: Validate distribution metadata
+        run: python -m twine check dist/*
+
+      # ----- Publish (release events only) ----------------------------------
+      - name: Publish to PyPI
+        if: github.event_name == 'release'
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [ -z "${TWINE_PASSWORD}" ]; then
+            echo "::error::PYPI_API_TOKEN secret is not set. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          python -m twine upload --non-interactive dist/*
+
+  # --------------------------------------------------------------------------
+  # npm: build + (optionally) publish the Node package in ./node
+  # --------------------------------------------------------------------------
+  publish-npm:
+    name: Build & Publish to npm
+    needs: detect
+    if: needs.detect.outputs.has_node == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: node
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          # Configures ~/.npmrc so `npm publish` reads NODE_AUTH_TOKEN.
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: node/package-lock.json
+
+      - name: Install dependencies
+        # Prefer reproducible installs when a lockfile exists; otherwise fall back.
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      # ----- Tests (only if a "test" script and test files exist) ----------
+      - name: Run npm test
+        run: |
+          HAS_TEST_SCRIPT=$(node -p "Boolean(require('./package.json').scripts && require('./package.json').scripts.test)")
+          if [ "$HAS_TEST_SCRIPT" = "true" ] && [ -d tests ]; then
+            npm test
+          else
+            echo "No npm tests found - skipping."
+          fi
+
+      # ----- Bump version from release tag ----------------------------------
+      - name: Bump version in package.json
+        if: github.event_name == 'release' && needs.detect.outputs.version != ''
+        env:
+          NEW_VERSION: ${{ needs.detect.outputs.version }}
+        # `npm version` writes the version without creating a git tag (we already have one).
+        run: npm version "${NEW_VERSION}" --no-git-tag-version --allow-same-version
+
+      # ----- Build (only if a "build" script exists) ------------------------
+      - name: Build package
+        run: |
+          HAS_BUILD=$(node -p "Boolean(require('./package.json').scripts && require('./package.json').scripts.build)")
+          if [ "$HAS_BUILD" = "true" ]; then
+            npm run build
+          else
+            echo "No npm build script defined - skipping."
+          fi
+
+      # ----- Publish (release events only) ----------------------------------
+      - name: Publish to npm
+        if: github.event_name == 'release'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::error::NPM_TOKEN secret is not set. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          # `--access public` is required for the first publish of a scoped package
+          # (e.g. @scouter/core). Subsequent publishes accept it as a no-op.
+          npm publish --access public --provenance
