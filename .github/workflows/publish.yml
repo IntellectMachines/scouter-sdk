@@ -1,4 +1,4 @@
-# .github/workflows/publish.yml
+  # .github/workflows/publish.yml
 #
 # CI/CD pipeline for the scouter-sdk monorepo.
 #   - Python package lives in   ./python   (pyproject.toml -> "scouter-ai" on PyPI)
@@ -102,16 +102,11 @@ jobs:
           python -m pip install -e ".[dev]" || python -m pip install -e .
 
       # ----- Tests (only if any test files exist) ---------------------------
-      # NOTE: tests/test_backend_integration.py and tests/test_e2e.py import
-      # `from app.main import app`, which lives in the separate backend
-      # service repo (not in scouter-sdk). They are excluded here so CI runs
-      # only the SDK's unit tests. Run them locally alongside the backend.
       - name: Run pytest
+        # `find` returns success even if nothing matches; we explicitly count.
         run: |
           if [ -d tests ] && [ "$(find tests -name 'test_*.py' -o -name '*_test.py' | wc -l)" -gt 0 ]; then
-            pytest -q \
-              --ignore=tests/test_backend_integration.py \
-              --ignore=tests/test_e2e.py
+            pytest -q
           else
             echo "No Python tests found - skipping."
           fi
@@ -161,6 +156,12 @@ jobs:
     needs: detect
     if: needs.detect.outputs.has_node == 'true'
     runs-on: ubuntu-latest
+    # Required for `npm publish --provenance` to mint a Sigstore attestation
+    # via GitHub's OIDC provider. `contents: read` is the minimum needed by
+    # actions/checkout once we narrow permissions away from the default.
+    permissions:
+      id-token: write
+      contents: read
     defaults:
       run:
         working-directory: node
