@@ -1,18 +1,21 @@
-  # .github/workflows/publish.yml
+# .github/workflows/publish.yml
 #
-# CI/CD pipeline for the scouter-sdk monorepo.
-#   - Python package lives in   ./python   (pyproject.toml -> "scouter-ai" on PyPI)
-#   - Node    package lives in   ./node     (package.json   -> "@scouter/core" on npm)
+# CI/CD pipeline for the scouter-sdk Node package only.
+#   - Node package lives in ./node (package.json -> "@scouter/core" on npm)
+#
+# PyPI publishing is intentionally NOT in this workflow.
+# `scouter-ai 0.1.0` is already on PyPI; future Python releases will be cut
+# manually until we re-introduce a separate PyPI workflow.
 #
 # Triggers:
-#   * push to master         -> runs tests only (publish steps are gated on `release`)
-#   * GitHub Release created -> runs tests AND publishes both packages in parallel
+#   * push to master         -> tests + build only (no publish)
+#   * GitHub Release created -> tests + build + publish to npm
 #
-# Required repository secrets (Settings > Secrets and variables > Actions):
-#   * PYPI_API_TOKEN  -> PyPI API token (scope: project "scouter-ai") prefixed with "pypi-"
-#   * NPM_TOKEN       -> npm automation token with publish rights to the @scouter scope
+# Required repository secret (Settings > Secrets and variables > Actions):
+#   * NPM_TOKEN -> npm automation token with publish rights to the @scouter scope
+#                  (the @scouter org must exist on npmjs.com first)
 
-name: Publish scouter-sdk
+name: Publish scouter-sdk (npm)
 
 on:
   push:
@@ -22,145 +25,15 @@ on:
 
 # Avoid concurrent publishes for the same ref.
 concurrency:
-  group: publish-${{ github.ref }}
+  group: publish-npm-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  # --------------------------------------------------------------------------
-  # Detect which sub-packages exist so we can gracefully skip missing ones.
-  # --------------------------------------------------------------------------
-  detect:
-    name: Detect packages
-    runs-on: ubuntu-latest
-    outputs:
-      has_python: ${{ steps.check.outputs.has_python }}
-      has_node:   ${{ steps.check.outputs.has_node }}
-      version:    ${{ steps.version.outputs.value }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: check
-        name: Check for package manifests
-        run: |
-          # PyPI job is skipped unless pyproject.toml OR setup.py is present.
-          if [ -f python/pyproject.toml ] || [ -f python/setup.py ]; then
-            echo "has_python=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_python=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::No python/pyproject.toml or python/setup.py found - PyPI job will be skipped."
-          fi
-
-          # npm job is skipped unless package.json is present.
-          if [ -f node/package.json ]; then
-            echo "has_node=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_node=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::No node/package.json found - npm job will be skipped."
-          fi
-
-      - id: version
-        name: Resolve version from release tag
-        # On a release event, GITHUB_REF_NAME is the tag (e.g. "v1.2.3").
-        # We strip a leading "v" so it can be fed straight into PEP 440 / semver.
-        # On non-release events the value is empty and version-bump steps are no-ops.
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            RAW="${GITHUB_REF_NAME}"
-            CLEAN="${RAW#v}"
-            echo "value=${CLEAN}" >> "$GITHUB_OUTPUT"
-            echo "Release version detected: ${CLEAN}"
-          else
-            echo "value=" >> "$GITHUB_OUTPUT"
-          fi
-
-  # --------------------------------------------------------------------------
-  # PyPI: build + (optionally) publish the Python package in ./python
-  # --------------------------------------------------------------------------
-  publish-pypi:
-    name: Build & Publish to PyPI
-    needs: detect
-    if: needs.detect.outputs.has_python == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: python
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install build tooling
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build twine
-          # Install the package + dev extras so tests can import dependencies.
-          # `[dev]` is defined in python/pyproject.toml.
-          python -m pip install -e ".[dev]" || python -m pip install -e .
-
-      # ----- Tests (only if any test files exist) ---------------------------
-      # NOTE: tests/test_backend_integration.py and tests/test_e2e.py import
-      # `from app.main import app`, which lives in the separate backend
-      # service repo (not in scouter-sdk). They are excluded here so CI runs
-      # only the SDK's unit tests. Run them locally alongside the backend.
-      - name: Run pytest
-        run: |
-          if [ -d tests ] && [ "$(find tests -name 'test_*.py' -o -name '*_test.py' | wc -l)" -gt 0 ]; then
-            pytest -q \
-              --ignore=tests/test_backend_integration.py \
-              --ignore=tests/test_e2e.py
-          else
-            echo "No Python tests found - skipping."
-          fi
-
-      # ----- Bump version from release tag ----------------------------------
-      - name: Bump version in pyproject.toml
-        if: github.event_name == 'release' && needs.detect.outputs.version != ''
-        env:
-          NEW_VERSION: ${{ needs.detect.outputs.version }}
-        run: |
-          # In-place rewrite of the `version = "..."` line under [project].
-          # Using python keeps this portable and avoids brittle sed escaping.
-          python - <<'PY'
-          import os, re, pathlib
-          p = pathlib.Path("pyproject.toml")
-          new = os.environ["NEW_VERSION"]
-          text = p.read_text()
-          text = re.sub(r'^version\s*=\s*".*"', f'version = "{new}"', text, count=1, flags=re.M)
-          p.write_text(text)
-          print(f"pyproject.toml version bumped to {new}")
-          PY
-
-      - name: Build sdist + wheel
-        run: python -m build
-
-      - name: Validate distribution metadata
-        run: python -m twine check dist/*
-
-      # ----- Publish (release events only) ----------------------------------
-      - name: Publish to PyPI
-        if: github.event_name == 'release'
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          if [ -z "${TWINE_PASSWORD}" ]; then
-            echo "::error::PYPI_API_TOKEN secret is not set. Add it under Settings > Secrets and variables > Actions."
-            exit 1
-          fi
-          python -m twine upload --non-interactive dist/*
-
-  # --------------------------------------------------------------------------
-  # npm: build + (optionally) publish the Node package in ./node
-  # --------------------------------------------------------------------------
   publish-npm:
     name: Build & Publish to npm
-    needs: detect
-    if: needs.detect.outputs.has_node == 'true'
     runs-on: ubuntu-latest
+    # Skip cleanly if the node package was ever moved/removed.
+    if: hashFiles('node/package.json') != ''
     # Required for `npm publish --provenance` to mint a Sigstore attestation
     # via GitHub's OIDC provider. `contents: read` is the minimum needed by
     # actions/checkout once we narrow permissions away from the default.
@@ -191,7 +64,7 @@ jobs:
             npm install
           fi
 
-      # ----- Tests (only if a "test" script and test files exist) ----------
+      # ----- Tests (only if a "test" script and tests/ directory exist) ----
       - name: Run npm test
         run: |
           HAS_TEST_SCRIPT=$(node -p "Boolean(require('./package.json').scripts && require('./package.json').scripts.test)")
@@ -201,15 +74,23 @@ jobs:
             echo "No npm tests found - skipping."
           fi
 
-      # ----- Bump version from release tag ----------------------------------
+      # ----- Bump version from release tag ---------------------------------
+      # On a release event GITHUB_REF_NAME is the tag (e.g. "v0.2.0"); strip
+      # the leading "v" so npm sees a clean semver. No-op on push events.
       - name: Bump version in package.json
-        if: github.event_name == 'release' && needs.detect.outputs.version != ''
+        if: github.event_name == 'release'
         env:
-          NEW_VERSION: ${{ needs.detect.outputs.version }}
-        # `npm version` writes the version without creating a git tag (we already have one).
-        run: npm version "${NEW_VERSION}" --no-git-tag-version --allow-same-version
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          NEW_VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$NEW_VERSION" ]; then
+            echo "::error::Could not derive version from tag '${GITHUB_REF_NAME}'."
+            exit 1
+          fi
+          echo "Bumping @scouter/core to ${NEW_VERSION}"
+          npm version "$NEW_VERSION" --no-git-tag-version --allow-same-version
 
-      # ----- Build (only if a "build" script exists) ------------------------
+      # ----- Build (only if a "build" script exists) -----------------------
       - name: Build package
         run: |
           HAS_BUILD=$(node -p "Boolean(require('./package.json').scripts && require('./package.json').scripts.build)")
@@ -219,7 +100,7 @@ jobs:
             echo "No npm build script defined - skipping."
           fi
 
-      # ----- Publish (release events only) ----------------------------------
+      # ----- Publish (release events only) ---------------------------------
       - name: Publish to npm
         if: github.event_name == 'release'
         env:
@@ -231,4 +112,5 @@ jobs:
           fi
           # `--access public` is required for the first publish of a scoped package
           # (e.g. @scouter/core). Subsequent publishes accept it as a no-op.
+          # `--provenance` mints a Sigstore attestation; needs id-token: write above.
           npm publish --access public --provenance
