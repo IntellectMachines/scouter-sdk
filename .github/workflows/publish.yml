@@ -179,8 +179,9 @@ jobs:
           node-version: "20"
           # Configures ~/.npmrc so `npm publish` reads NODE_AUTH_TOKEN.
           registry-url: "https://registry.npmjs.org"
-          cache: npm
-          cache-dependency-path: node/package-lock.json
+          # NOTE: npm cache disabled because no package-lock.json is committed.
+          # Re-enable by adding `cache: npm` + `cache-dependency-path` once a
+          # Linux-generated lockfile is checked in.
 
       - name: Install dependencies
         # Prefer reproducible installs when a lockfile exists; otherwise fall back.
