@@ -2,7 +2,7 @@
 
 **Runtime Semantic Authorization for AI Agents.**
 
-Scouter wraps your AI agent clients to intercept, evaluate, and govern every action before it executes — stopping rogue tool calls, prompt injections, and policy violations in real time. Go to : [Scouter](https://scouter.intellectmachines.com/ui/login.html)
+Scouter wraps your AI agent clients to intercept, evaluate, and govern every action before it executes — stopping rogue tool calls, prompt injections, and policy violations in real time. Go to, get API Key : [Scouter](https://scouter.intellectmachines.com/ui/login.html)
 
 [![PyPI](https://img.shields.io/pypi/v/scouter-ai)](https://pypi.org/project/scouter-ai/)
 [![npm](https://img.shields.io/npm/v/@scouter-ai/node)](https://www.npmjs.com/package/@scouter-ai/node)
