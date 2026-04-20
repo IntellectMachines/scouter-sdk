@@ -11,10 +11,16 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import httpx
 
 logger = logging.getLogger("scouter.backend")
+
+
+def _enc(value: str) -> str:
+    """Encode a value safely for inclusion in a URL path segment."""
+    return quote(str(value), safe="")
 
 
 class CapabilityEscalationError(Exception):
@@ -100,7 +106,7 @@ class BackendClient:
         })
 
     def get_intent(self, intent_id: str) -> Optional[dict]:
-        return self._request("GET", f"/api/v1/intents/{intent_id}", caller="get_intent")
+        return self._request("GET", f"/api/v1/intents/{_enc(intent_id)}", caller="get_intent")
 
     # ── Consequence Engine ─────────────────────────────────────────
 
@@ -137,12 +143,12 @@ class BackendClient:
         })
 
     def analyze_trace(self, trace_id: str) -> Optional[dict]:
-        return self._request("POST", f"/api/v1/observability/traces/{trace_id}/analyze", caller="analyze_trace")
+        return self._request("POST", f"/api/v1/observability/traces/{_enc(trace_id)}/analyze", caller="analyze_trace")
 
     # ── Audit ──────────────────────────────────────────────────────
 
     def verify_artifact(self, artifact_id: str) -> Optional[dict]:
-        return self._request("GET", f"/api/v1/audit/verify/{artifact_id}", caller="verify_artifact")
+        return self._request("GET", f"/api/v1/audit/verify/{_enc(artifact_id)}", caller="verify_artifact")
 
     def export_compliance(self) -> Optional[dict]:
         return self._request("GET", "/api/v1/audit/export", caller="export_compliance")
@@ -166,15 +172,15 @@ class BackendClient:
         self, agent_id: str, limit: int = 100
     ) -> Optional[List[dict]]:
         """Get telemetry records for a specific agent."""
-        return self._request("GET", f"/api/v1/telemetry/agent/{agent_id}", caller="get_agent_telemetry", params={"limit": limit})
+        return self._request("GET", f"/api/v1/telemetry/agent/{_enc(agent_id)}", caller="get_agent_telemetry", params={"limit": limit})
 
     def get_agent_stats(self, agent_id: str) -> Optional[dict]:
         """Get aggregated statistics for an agent."""
-        return self._request("GET", f"/api/v1/telemetry/agent/{agent_id}/stats", caller="get_agent_stats")
+        return self._request("GET", f"/api/v1/telemetry/agent/{_enc(agent_id)}/stats", caller="get_agent_stats")
 
     def get_trace_telemetry(self, trace_id: str) -> Optional[List[dict]]:
         """Get telemetry records for a specific trace."""
-        return self._request("GET", f"/api/v1/telemetry/trace/{trace_id}", caller="get_trace_telemetry")
+        return self._request("GET", f"/api/v1/telemetry/trace/{_enc(trace_id)}", caller="get_trace_telemetry")
 
     # ── Prompt Analyzer ────────────────────────────────────────────
 
@@ -261,7 +267,7 @@ class BackendClient:
         )
 
     def get_task(self, task_id: str) -> Optional[dict]:
-        return self._request("GET", f"/api/v1/auth/tasks/{task_id}", caller="get_task")
+        return self._request("GET", f"/api/v1/auth/tasks/{_enc(task_id)}", caller="get_task")
 
     def revoke_credential(
         self,
@@ -314,14 +320,14 @@ class BackendClient:
 
     def resolve_did(self, did: str) -> Optional[dict]:
         """Resolve a DID Document by DID string."""
-        return self._request("GET", f"/api/v1/dids/{did}", caller="resolve_did")
+        return self._request("GET", f"/api/v1/dids/{_enc(did)}", caller="resolve_did")
 
     def revoke_did(self, did: str, reason: str = "cessation") -> Optional[dict]:
         """Revoke a DID. Invalidates associated JIT credentials."""
-        return self._request("POST", f"/api/v1/dids/{did}/revoke", caller="revoke_did", json={
+        return self._request("POST", f"/api/v1/dids/{_enc(did)}/revoke", caller="revoke_did", json={
             "reason": reason,
         })
 
     def rotate_did_key(self, did: str) -> Optional[dict]:
         """Rotate the Ed25519 keypair for a DID."""
-        return self._request("POST", f"/api/v1/dids/{did}/keys/rotate", caller="rotate_did_key")
+        return self._request("POST", f"/api/v1/dids/{_enc(did)}/keys/rotate", caller="rotate_did_key")

@@ -12,15 +12,17 @@ Operates in two modes:
 
 from __future__ import annotations
 
-import base64
+import logging
 import uuid
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse
 
-# Default endpoint — do not edit this line directly; update via deploy config
-# Decodes to: https://scouter.intellectmachines.com
-_EP = base64.b64decode(
-    b"aHR0cHM6Ly9zY291dGVyLmludGVsbGVjdG1hY2hpbmVzLmNvbQ=="
-).decode()
+# Default Scouter backend endpoint. Override per-deployment via ``backend_url``
+# or the SCOUTER_BACKEND_URL env var. Stored in plaintext deliberately —
+# obfuscation provides no security and impedes supply-chain auditing.
+DEFAULT_BACKEND_URL = "https://scouter.intellectmachines.com"
+
+_logger = logging.getLogger("scouter.client")
 
 from scouter.api.backend import CapabilityEscalationError
 from scouter.engine.intent import IntentRegistry
@@ -48,10 +50,30 @@ class ScouterClient:
         verbose: bool = True,
         backend_url: Optional[str] = None,
     ) -> None:
-        backend_url = backend_url or _EP
+        backend_url = backend_url or DEFAULT_BACKEND_URL
         self.api_key = api_key
         self.mode = mode
         self.trace_id = f"trace-{uuid.uuid4().hex[:12]}"
+
+        # Refuse to transmit an API key over plaintext HTTP — credential leak risk.
+        # Allow loopback for local development.
+        safe_api_key = api_key
+        if safe_api_key and backend_url:
+            try:
+                parsed = urlparse(backend_url)
+            except Exception:  # noqa: BLE001
+                parsed = None
+            if parsed and parsed.scheme == "http" and (parsed.hostname or "") not in (
+                "localhost",
+                "127.0.0.1",
+                "::1",
+            ):
+                _logger.warning(
+                    "Refusing to send API key over insecure http:// backend (%s); "
+                    "use https:// or a trusted loopback. API key will not be transmitted.",
+                    parsed.netloc,
+                )
+                safe_api_key = None
 
         # Local engine (always available as fallback)
         self.registry = IntentRegistry()
@@ -72,7 +94,7 @@ class ScouterClient:
         self.backend_url = backend_url
         if backend_url:
             from scouter.api.backend import BackendClient
-            self.backend = BackendClient(backend_url, api_key=api_key)
+            self.backend = BackendClient(backend_url, api_key=safe_api_key)
             if self.backend.health():
                 self.console.log_info("init", f"Connected to backend at {backend_url}")
                 # Initialize hybrid execution interceptor with server support

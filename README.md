@@ -145,10 +145,12 @@ Get your API key from the [Scouter Dashboard](https://scouter.intellectmachines.
 
 ## Examples
 
+- [`python/examples/01_quickstart.py`](python/examples/01_quickstart.py) — Local-only setup in ~20 lines
+- [`python/examples/02_guards_inline.py`](python/examples/02_guards_inline.py) — Drop-in shell / SQL / API guards
+- [`python/examples/03_openai_governance.py`](python/examples/03_openai_governance.py) — One-line OpenAI integration
+- [`python/examples/04_connect_backend.py`](python/examples/04_connect_backend.py) — Connect to backend + JIT credentials
 - [`python/examples/openai_chatbot.py`](python/examples/openai_chatbot.py) — Full chatbot with tool calls and governance
-- [`python/examples/openai_example.py`](python/examples/openai_example.py) — Minimal OpenAI integration
-- [`python/examples/guard_demo.py`](python/examples/guard_demo.py) — Execution guard demonstrations
-- [`python/examples/test_deployed.py`](python/examples/test_deployed.py) — Integration test suite
+- [`python/examples/guard_demo.py`](python/examples/guard_demo.py) — Exhaustive guard rule walkthrough
 
 ---
 

@@ -24,6 +24,7 @@ dist/
 # IDE
 .vscode/
 .idea/
+.vs/
 *.swp
 *.swo
 .DS_Store
@@ -33,3 +34,7 @@ Thumbs.db
 agent_workspace/
 *.db
 node/package-lock.json
+
+# Accidental root-level npm artifacts (real package lives in ./node)
+/package.json
+/package-lock.json

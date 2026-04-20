@@ -132,6 +132,11 @@ export interface DIDKeyRotateResponse {
   [key: string]: unknown;
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────
+
+/** Encode a value safely for inclusion in a URL path segment. */
+const enc = (v: string): string => encodeURIComponent(v);
+
 // ── Client ───────────────────────────────────────────────────────────
 
 export interface BackendClientOptions {
@@ -196,7 +201,7 @@ export class BackendClient {
   }
 
   async getIntent(intentId: string): Promise<IntentResponse | null> {
-    return this.request<IntentResponse>("GET", `/api/v1/intents/${intentId}`);
+    return this.request<IntentResponse>("GET", `/api/v1/intents/${enc(intentId)}`);
   }
 
   // ── Consequence Engine ─────────────────────────────────────────
@@ -242,13 +247,13 @@ export class BackendClient {
   }
 
   async analyzeTrace(traceId: string): Promise<AnalyzeTraceResponse | null> {
-    return this.request<AnalyzeTraceResponse>("POST", `/api/v1/observability/traces/${traceId}/analyze`);
+    return this.request<AnalyzeTraceResponse>("POST", `/api/v1/observability/traces/${enc(traceId)}/analyze`);
   }
 
   // ── Audit ──────────────────────────────────────────────────────
 
   async verifyArtifact(artifactId: string): Promise<ArtifactVerifyResponse | null> {
-    return this.request<ArtifactVerifyResponse>("GET", `/api/v1/audit/verify/${artifactId}`);
+    return this.request<ArtifactVerifyResponse>("GET", `/api/v1/audit/verify/${enc(artifactId)}`);
   }
 
   async exportCompliance(): Promise<ComplianceExportResponse | null> {
@@ -282,15 +287,15 @@ export class BackendClient {
     agentId: string,
     limit = 100,
   ): Promise<TelemetryRecord[] | null> {
-    return this.request<TelemetryRecord[]>("GET", `/api/v1/telemetry/agent/${agentId}?limit=${limit}`);
+    return this.request<TelemetryRecord[]>("GET", `/api/v1/telemetry/agent/${enc(agentId)}?limit=${encodeURIComponent(String(limit))}`);
   }
 
   async getAgentStats(agentId: string): Promise<AgentStatsResponse | null> {
-    return this.request<AgentStatsResponse>("GET", `/api/v1/telemetry/agent/${agentId}/stats`);
+    return this.request<AgentStatsResponse>("GET", `/api/v1/telemetry/agent/${enc(agentId)}/stats`);
   }
 
   async getTraceTelemetry(traceId: string): Promise<TelemetryRecord[] | null> {
-    return this.request<TelemetryRecord[]>("GET", `/api/v1/telemetry/trace/${traceId}`);
+    return this.request<TelemetryRecord[]>("GET", `/api/v1/telemetry/trace/${enc(traceId)}`);
   }
 
   // ── Prompt Analyzer ────────────────────────────────────────────
@@ -361,7 +366,7 @@ export class BackendClient {
   }
 
   async listPolicies(intentId?: string): Promise<PbacPolicyResponse[] | null> {
-    const qs = intentId ? `?intent_id=${intentId}` : "";
+    const qs = intentId ? `?intent_id=${encodeURIComponent(intentId)}` : "";
     return this.request<PbacPolicyResponse[]>("GET", `/api/v1/auth/policies${qs}`);
   }
 
@@ -378,17 +383,17 @@ export class BackendClient {
   }
 
   async resolveDID(did: string): Promise<DIDResponse | null> {
-    return this.request<DIDResponse>("GET", `/api/v1/dids/${did}`);
+    return this.request<DIDResponse>("GET", `/api/v1/dids/${enc(did)}`);
   }
 
   async revokeDID(
     did: string,
     reason = "cessation",
   ): Promise<DIDResponse | null> {
-    return this.request<DIDResponse>("POST", `/api/v1/dids/${did}/revoke`, { reason });
+    return this.request<DIDResponse>("POST", `/api/v1/dids/${enc(did)}/revoke`, { reason });
   }
 
   async rotateDIDKey(did: string): Promise<DIDKeyRotateResponse | null> {
-    return this.request<DIDKeyRotateResponse>("POST", `/api/v1/dids/${did}/keys/rotate`);
+    return this.request<DIDKeyRotateResponse>("POST", `/api/v1/dids/${enc(did)}/keys/rotate`);
   }
 }
